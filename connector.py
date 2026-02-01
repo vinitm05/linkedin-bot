@@ -103,7 +103,11 @@ def send_requests(company_name, limit=2):
                             break
 
                         print(f"   👋 Connecting with {name} (Method: {btn_selector})...")
-                        btn.first.click()
+                        try:
+                            btn.first.click(force=True)
+                        except Exception as e:
+                            print(f"⚠️ Force click failed, trying JavaScript click...")
+                            btn.first.evaluate("element => element.click()")
                         time.sleep(1)
 
                         # Handle Popup

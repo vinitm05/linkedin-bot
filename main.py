@@ -1,7 +1,7 @@
 import schedule
 import time
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import job_scraper
 import connector
 import intelligence
@@ -75,7 +75,7 @@ def big_tech_mode():
 def scheduled_job():
     # ADJUST TIME FOR INDIA (Server is usually UTC)
     # UTC + 5.5 hours = IST
-    india_time = datetime.now(datetime.UTC) + timedelta(hours=5, minutes=30)
+    india_time = datetime.now(tz=timezone.utc) + timedelta(hours=5, minutes=30)
     current_hour = india_time.hour
 
     print(f"⏰ Current India Time: {india_time.strftime('%H:%M')}")
