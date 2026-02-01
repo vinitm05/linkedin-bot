@@ -2,92 +2,134 @@ from playwright.sync_api import sync_playwright
 import time
 import random
 import database
-from pyvirtualdisplay import Display
 
-TARGET_ROLES = [
-    "Engineering Manager",
-    "Senior Software Engineer",
-    "Technical Lead",
-    "Product Manager",
-    "Director of Engineering"
+# ==========================================
+# 🔐 THE MASTER KEYCHAIN
+# ==========================================
+
+# The bot will try these one by one until it finds the button
+BUTTON_SELECTORS = [
+    ".artdeco-button--secondary",  # Standard "Connect" button
+    ".artdeco-button--2",  # Standard Variant
+    ".artdeco-button",  # Generic
+    ".ember-view",  # LinkedIn Framework class
+    ".ac1a5614",  # Obfuscated (From your list)
+    "button"  # The "Nuclear Option" (Finds any button)
 ]
+
+# The bot will try these one by one until it finds the profile cards
+CARD_SELECTORS = [
+    ".reusable-search__result-container",  # Standard
+    ".entity-result",  # Standard Variant
+    ".artdeco-list__item",  # Old Version
+    "._7112567e",  # Obfuscated (From your list)
+    ".kqsUvFIVEzxXHwNCcNOysWeEkXHhftnUdDk",  # Obfuscated (From your list)
+    "li.reusable-search__result-container"  # Specific List Item
+]
+
+# ==========================================
+
+TARGET_ROLES = ["Product Manager", "Engineering Manager", "Technical Lead"]
+STEALTH_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 
 def send_requests(company_name, limit=2):
     print(f"🤖 Bot initializing for target: {company_name}")
     target_role = random.choice(TARGET_ROLES)
-    print(f"   🎯 Strategy: Looking for a '{target_role}'")
 
-    with Display(visible=False, size=(1920,1080)):
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
-            context = browser.new_context(storage_state="auth.json")
-            page = context.new_page()
+    with sync_playwright() as p:
+        # Headless=False so you can watch it pick the lock
+        browser = p.chromium.launch(
+            headless=True,
+            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
+        )
+        context = browser.new_context(
+            storage_state="auth.json",
+            user_agent=STEALTH_AGENT,
+            viewport={"width": 1920, "height": 1080}
+        )
+        page = context.new_page()
 
+        try:
             query = f"{target_role} {company_name}"
-            search_url = f"https://www.linkedin.com/search/results/people/?keywords={query}&origin=GLOBAL_SEARCH_HEADER"
+            # Added &origin=GLOBAL_SEARCH_HEADER to match human behavior
+            page.goto(f"https://www.linkedin.com/search/results/people/?keywords={query}&origin=GLOBAL_SEARCH_HEADER",
+                      timeout=60000)
+            time.sleep(5)
 
-            try:
-                page.goto(search_url, timeout=60000)
-                time.sleep(random.uniform(4, 7))
-            except Exception as e:
-                print(f"❌ Error loading page: {e}")
-                browser.close()
+            # 🔍 PHASE 1: Find the right Card Selector
+            active_card_selector = None
+            cards = []
+
+            print("   🕵️‍♂️ Probing for profile cards...")
+            for selector in CARD_SELECTORS:
+                found = page.locator(selector).all()
+                if len(found) > 0:
+                    print(f"      ✅ Match found! Using selector: '{selector}' ({len(found)} cards)")
+                    active_card_selector = selector
+                    cards = found
+                    break
+                else:
+                    # print(f"      ❌ '{selector}' failed.") # Uncomment to debug
+                    pass
+
+            if not active_card_selector:
+                print("   ❌ CRITICAL: No profile cards found. LinkedIn has changed the code completely.")
                 return
 
-            result_cards = page.locator("li.reusable-search__result-container").all()
-
+            # 🔍 PHASE 2: Process Cards
             sent_count = 0
+            for i, card in enumerate(cards):
+                if sent_count >= limit: break
 
-            for card in result_cards:
-                if sent_count >= limit:
-                    break
-
+                # Try to get the name (Not critical, just for logging)
                 try:
-                    # 1. Extract Profile URL
-                    link_tag = card.locator("a.app-aware-link").first
-                    profile_url = link_tag.get_attribute("href")
-                    if profile_url: profile_url = profile_url.split("?")[0]
+                    name_tag = card.locator("span[aria-hidden='true']").first
+                    name = name_tag.inner_text().strip() if name_tag.count() > 0 else f"Candidate #{i + 1}"
+                except:
+                    name = f"Candidate #{i + 1}"
 
-                    # 2. Extract Name (Look for the text inside the link)
-                    # We use specific selectors to avoid getting "View Profile" text
-                    name_tag = link_tag.locator("span[aria-hidden='true']").first
-                    person_name = name_tag.inner_text().strip() if name_tag.count() > 0 else "Unknown"
+                # 🔍 PHASE 3: Find the right Button Selector inside this card
+                clicked = False
+                for btn_selector in BUTTON_SELECTORS:
+                    # We combine the class with the text "Connect" to be safe
+                    btn = card.locator(btn_selector).filter(has_text="Connect")
 
-                    # 3. Extract Position/Headline
-                    # Usually in the gray text under the name
-                    pos_tag = card.locator(".entity-result__primary-subtitle").first
-                    person_position = pos_tag.inner_text().strip() if pos_tag.count() > 0 else target_role
+                    if btn.count() > 0:
+                        # Check if it's disabled/pending (has 'muted' class)
+                        if "artdeco-button--muted" in btn.get_attribute("class"):
+                            print(f"      ⏭️ Skipping {name} (Already Pending)")
+                            clicked = True  # Treat as handled
+                            break
 
-                    # Database Check
-                    if database.has_contacted(profile_url):
-                        print(f"⏭️ Skipping {person_name} (Already contacted)")
-                        continue
-
-                    # Connect Logic
-                    connect_btn = card.get_by_role("button", name="Connect")
-                    if connect_btn.count() > 0:
-                        connect_btn.scroll_into_view_if_needed()
-                        time.sleep(random.uniform(1, 3))
-                        connect_btn.click()
-
+                        print(f"   👋 Connecting with {name} (Method: {btn_selector})...")
+                        btn.first.click()
                         time.sleep(1)
-                        send_btn = page.get_by_role("button", name="Send without a note")
-                        if send_btn.count() > 0:
-                            send_btn.click()
+
+                        # Handle Popup
+                        send = page.locator("button[aria-label='Send now']")
+                        if send.count() == 0:
+                            send = page.locator("button:has-text('Send without a note')")
+
+                        if send.count() > 0:
+                            send.click()
+                            print(f"      ✅ SUCCESS.")
+                            database.log_contact("unknown", name, company_name, target_role)
+                            sent_count += 1
+                            time.sleep(random.uniform(3, 6))
                         else:
-                            page.get_by_role("button", name="Send", exact=True).click()
+                            # Close popup if something went wrong
+                            page.keyboard.press("Escape")
 
-                        print(f"✅ Connection sent to: {person_name} ({person_position})")
+                        clicked = True
+                        break  # Stop checking other button selectors for this person
 
-                        # 4. Log NEW details to Database
-                        database.log_contact(profile_url, person_name, company_name, person_position)
+                if not clicked:
+                    # Optional: Check for Follow button just to know
+                    # print(f"      ⚠️ No Connect button for {name} (Likely Creator/VIP).")
+                    pass
 
-                        sent_count += 1
-                        time.sleep(random.uniform(3, 8))
-
-                except Exception as e:
-                    # print(f"⚠️ Error parsing card: {e}") # Uncomment for debugging
-                    continue
-
+        except Exception as e:
+            print(f"❌ Error: {e}")
+        finally:
             browser.close()

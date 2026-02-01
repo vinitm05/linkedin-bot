@@ -1,3 +1,7 @@
 .venv
 .idea
 auth.json
+.env
+bot_memory.db
+__pycache__/
+*.log

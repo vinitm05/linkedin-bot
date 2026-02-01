@@ -1,10 +1,12 @@
 import schedule
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 import job_scraper
 import connector
 import intelligence
+import os
+import reporter
 
 # Configuration Files
 MANUAL_FILE = "manual_targets.txt"
@@ -15,21 +17,21 @@ def get_combined_targets():
     targets = set()
 
     # 1. Load User's Manual List
-    try:
+    if os.path.exists(MANUAL_FILE):
         with open(MANUAL_FILE, "r") as f:
             manual_list = [line.strip() for line in f.readlines() if line.strip()]
             targets.update(manual_list)
             print(f"   Loaded {len(manual_list)} manual targets.")
-    except FileNotFoundError:
+    else:
         print(f"   ⚠️ {MANUAL_FILE} not found. Please create it.")
 
     # 2. Load Intelligence List
-    try:
+    if os.path.exists(AUTO_FILE):
         with open(AUTO_FILE, "r") as f:
             auto_list = [line.strip() for line in f.readlines() if line.strip()]
             targets.update(auto_list)
             print(f"   Loaded {len(auto_list)} auto-discovered targets.")
-    except FileNotFoundError:
+    else:
         print("   No auto-targets found yet (Run intelligence.py to generate).")
 
     return list(targets)
@@ -71,10 +73,15 @@ def big_tech_mode():
     connector.send_requests(target, limit=2)
 
 def scheduled_job():
-    current_hour = datetime.now().hour
+    # ADJUST TIME FOR INDIA (Server is usually UTC)
+    # UTC + 5.5 hours = IST
+    india_time = datetime.now(datetime.UTC) + timedelta(hours=5, minutes=30)
+    current_hour = india_time.hour
 
-    # Run only between 8 AM and 6 PM
-    if 8 <= current_hour <= 18:
+    print(f"⏰ Current India Time: {india_time.strftime('%H:%M')}")
+
+    # Run only between 8 AM and 7 PM IST
+    if 8 <= current_hour <= 19:
         # 50% chance to target new jobs, 50% chance for big tech
         if random.random() > 0.5:
             job_analysis_mode()
@@ -85,15 +92,18 @@ def scheduled_job():
 
 # --- Scheduler Setup ---
 
-# 1. Market Intelligence: Run every Monday morning to refresh the auto-list
+# 1. Market Intelligence: Run every Monday morning
 schedule.every().monday.at("09:00").do(run_daily_analysis)
 
-# 2. Connection Bot: Run every hour at a random minute (e.g., :15)
+# 2. Connection Bot: Run every hour
 schedule.every().hour.at(":15").do(scheduled_job)
 
-print("🚀 Bot Controller Started. Waiting for schedule...")
+# 3. Send Daily report
+schedule.every().day.at("22:00").do(reporter.send_daily_report)
 
-# Run immediately once for testing purposes
+print("🚀 Oracle Bot Controller Started. Waiting for schedule...")
+
+# Run immediately once for testing
 scheduled_job()
 
 while True:

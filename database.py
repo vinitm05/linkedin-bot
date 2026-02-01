@@ -1,42 +1,34 @@
 import sqlite3
-from datetime import datetime
+import os
 
 DB_NAME = "bot_memory.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
-    # Updated Schema: Added 'name' and 'position' columns
-    c.execute('''CREATE TABLE IF NOT EXISTS history 
-                 (profile_url text PRIMARY KEY, 
-                  name text, 
-                  company text, 
-                  position text, 
-                  date_sent text)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS contacts
+                 (profile_url TEXT PRIMARY KEY, name TEXT, company TEXT, role TEXT, date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     conn.commit()
     conn.close()
 
-def get_connection():
-    return sqlite3.connect(DB_NAME, check_same_thread=False)
-
 def has_contacted(profile_url):
-    conn = get_connection()
+    conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
-    c.execute("SELECT 1 FROM history WHERE profile_url = ?", (profile_url,))
+    c.execute("SELECT 1 FROM contacts WHERE profile_url=?", (profile_url,))
     result = c.fetchone()
     conn.close()
     return result is not None
 
-# Updated to accept 4 arguments instead of 2
-def log_contact(profile_url, name, company, position):
-    conn = get_connection()
+def log_contact(profile_url, name, company, role):
+    conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO history VALUES (?, ?, ?, ?, ?)",
-                  (profile_url, name, company, position, datetime.now().isoformat()))
+        c.execute("INSERT INTO contacts (profile_url, name, company, role) VALUES (?, ?, ?, ?)",
+                  (profile_url, name, company, role))
         conn.commit()
     except sqlite3.IntegrityError:
         pass
     conn.close()
 
+# Initialize on import
 init_db()
