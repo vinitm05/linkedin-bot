@@ -14,16 +14,17 @@ BUTTON_SELECTORS = [
     ".artdeco-button",  # Generic
     ".ember-view",  # LinkedIn Framework class
     ".ac1a5614",  # Obfuscated (From your list)
-    "button"  # The "Nuclear Option" (Finds any button)
+    "button",  # The "Nuclear Option" (Finds any button)
+    "_54c2b8d0", "b558a3cc", "_21eb37b5", "d11859ae", "eb9355a0", "b703709f",
+    "_58838fb0"
 ]
 
 # The bot will try these one by one until it finds the profile cards
 CARD_SELECTORS = [
-    ".reusable-search__result-container",  # Standard
-    ".entity-result",  # Standard Variant
-    ".artdeco-list__item",  # Old Version
-    "._7112567e",  # Obfuscated (From your list)
-    ".kqsUvFIVEzxXHwNCcNOysWeEkXHhftnUdDk",  # Obfuscated (From your list)
+    ".e574b0ac",
+    ".ebd90671",
+    ".vFMUQgJJxQNkmlCbRjAZxRSLyNNzJYptwAFg",  # Obfuscated (From your list)
+    ".tUYHCfcZPxHSbeDWJkCQNrvmjrAHmDzcIE",  # Obfuscated (From your list)
     "li.reusable-search__result-container"  # Specific List Item
 ]
 
