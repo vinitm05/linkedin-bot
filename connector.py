@@ -1,6 +1,8 @@
-from playwright.sync_api import sync_playwright
-import time
 import random
+import time
+
+from playwright.sync_api import sync_playwright
+
 import database
 
 # ==========================================
@@ -15,8 +17,15 @@ BUTTON_SELECTORS = [
     ".ember-view",  # LinkedIn Framework class
     ".ac1a5614",  # Obfuscated (From your list)
     "button",  # The "Nuclear Option" (Finds any button)
-    "_54c2b8d0", "b558a3cc", "_21eb37b5", "d11859ae", "eb9355a0", "b703709f",
-    "_58838fb0"
+    "_54c2b8d0",
+    "b558a3cc",
+    "_21eb37b5",
+    "d11859ae",
+    "eb9355a0",
+    "b703709f",
+    "_58838fb0",
+    "_5a1cdf99", "fca1faf9", "a074e33d", "_57ee4602", "_8b341862", "_60125b54", "e255d55c", "_5f7640a4", "_404a125a",
+    "dce7ab81", "be529e0a", "b8e00892", "cc76b7da", "_0f36af5b", "c06f2036"
 ]
 
 # The bot will try these one by one until it finds the profile cards
